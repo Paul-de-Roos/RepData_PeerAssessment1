@@ -1,0 +1,130 @@
+---
+title: "Reproducible Research, assignment week 2"
+author: "P.A. de Roos"
+date: "February 7, 2017"
+output: html_document
+---
+
+
+Set the working directory & load the dataset.
+
+```{r loadTheData}
+setwd("C:/Users/paul/OneDrive/Coursera/Reproducible Research")
+Activity <- read.csv("activity.csv")
+head(Activity)
+```
+
+Calculate the number of steps per day and display as histogram.
+
+```{r CalculateSteps}
+(StepsPerDay <- with(Activity, tapply(steps, date, sum)))
+hist(StepsPerDay)
+```
+
+Calculate the mean and median of the total number of steps per day.
+
+```{r CalculateMeanAndMedianOfSteps}
+(MeanStepsPerDay <- mean(StepsPerDay, na.rm = T))
+(MedianStepsPerDay <- median(StepsPerDay, na.rm = T))
+```
+
+Create a time series plot of average steps per time of day.
+
+```{r TimeSeriesPlot}
+StepsPerInterval <- with(Activity, tapply(steps, interval, mean, na.rm = T))
+Intervals <- sort(unique(Activity$interval), decreasing = F)
+StepsWithIntervals <- as.data.frame(cbind(Intervals, StepsPerInterval))
+plot.ts(x=StepsWithIntervals$Intervals, y= StepsWithIntervals$StepsPerInterval, type="l")
+```
+
+Calculate the interval which has the highest amount of steps.
+
+```{r HighestSteps}
+(HighestSteps <- StepsWithIntervals[which(StepsWithIntervals$StepsPerInterval == max(StepsWithIntervals$StepsPerInterval)),])
+```
+
+Count the number of days with NA values (note these dates may also have non-NA values).
+
+```{r CountNAs}
+length(unique(Activity$date[is.na(Activity$steps)]))
+```
+
+Fill the NA values with the average steps per interval, step 1: create a new dataset without NA's.
+
+```{r NoNAs}
+Activity2 <- Activity[!is.na(Activity),]
+```
+
+Fill the NA values with the average steps per interval, step 2: calculate the average number of steps per interval.
+```{r MeanStepsPerInterval}
+MeanStepsPerInterval <- aggregate(Activity2$steps, list(Activity2$interval), mean, na.action = na.omit)
+(colnames(MeanStepsPerInterval) <- c("interval", "meanSteps"))
+```
+
+Fill the NA values with the average steps per interval, step 3: merge the avg. no. of steps per interval with a copy of the original dataset.
+```{r Merge}
+library(data.table)
+Activity3 <- Activity
+Activity3 <- merge(Activity, MeanStepsPerInterval)
+head(Activity3)
+```
+
+Fill the NA values with the average steps per interval, step 4: replace the NA's with the averages, then lose the meanSteps column.
+```{r Replace}
+Activity3$steps <- ifelse(!is.na(Activity3$steps) , Activity3$steps, Activity3$meanSteps)
+Activity3 <- Activity3[-4]
+head(Activity3)
+```
+
+Calculate the number of steps per day -based on the dataset with imputed values- and display as histogram.
+
+```{r CalculateSteps_withImputedValues}
+(StepsPerDay_withImputedValues <- with(Activity3, tapply(steps, date, sum)))
+hist(StepsPerDay_withImputedValues)
+```
+
+...note there is hardly a difference in the chart compared to the previous histogram.
+
+Calculate the mean and median of the total number of steps per day -based on the dataset with imputed values-.
+
+```{r CalculateMeanAndMedianOfSteps_withImputedValues}
+(MeanStepsPerDay_withImputedValues <- mean(StepsPerDay_withImputedValues, na.rm = T))
+(MedianStepsPerDay_withImputedValues <- median(StepsPerDay_withImputedValues, na.rm = T))
+```
+
+Create a new factor variable (weekday/weekend).
+
+```{r weekdays}
+weekdayOrWeekend <- as.factor(weekdays(as.Date(Activity3$date)))
+weekdayOrWeekend <- ifelse(weekdayOrWeekend=="Saturday"|weekdayOrWeekend=="Sunday", "Weekend", "Weekday")
+Activity_WoW <- cbind(Activity3, weekdayOrWeekend)
+head(Activity_WoW)
+```
+
+Create a time series plot of average steps per time of day, split per weekday/weekend.
+
+Step 1: calculate the average steps per interval and attach that as an extra column to the Activity_WoW dataset.
+NB WoW stands for "Weekday or Weekend".
+
+```{r TimeSeriesPlot_weekdayOrWeekend_step1}
+StepsPerInterval_WoW <- with(Activity_WoW, tapply(steps, interval, mean, na.rm = T))
+Intervals_WoW <- sort(unique(Activity_WoW$interval), decreasing = F)
+StepsWithIntervals_WoW <- as.data.frame(cbind(Intervals_WoW, StepsPerInterval_WoW))
+```
+
+Step 2: Split the dataset in 2 dataset and plot them both.
+
+```{r TimeSeriesPlot_weekdayOrWeekend_step2}
+Weekday <- StepsWithIntervals_WoW[weekdayOrWeekend =="Weekday",]
+Weekend <- StepsWithIntervals_WoW[weekdayOrWeekend =="Weekend",]
+par(mfrow=c(2,1))
+plot.ts(x=Weekday$Intervals, y= Weekday$StepsPerInterval, type="l", main="Weekdays", xlab="Intervals", ylab="Steps per interval")
+plot.ts(x=Weekend$Intervals, y= Weekend$StepsPerInterval, type="l", main="Weekend", xlab="Intervals", ylab="Steps per interval")
+
+```
+
+
+
+
+
+
